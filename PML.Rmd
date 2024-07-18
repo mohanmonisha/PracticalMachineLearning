@@ -1,0 +1,119 @@
+---
+title: "Pratical Machine Learning"
+author: "Monisha Mohan"
+date: "2024-06-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(caret)
+library(randomForest)
+library(ggplot2)
+library(gbm)
+```
+
+## Introduction
+In this project, we aim to predict the manner in which exercises were performed using accelerometer data from wearable devices. The dataset contains measurements from the belt, forearm, arm, and dumbbell of 6 participants performing barbell lifts in 5 different ways.
+
+## Data Source
+The training data for this project are available here: [https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv]
+
+The test data are available here:
+[https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv]
+
+The data for this project come from this source: [http://groupware.les.inf.puc-rio.br/har]. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+## Loading Dataset
+The Dataset has been downloaded from the internet and has been loaded into two seperate dataframes, train_data and test_data. The training data set has 19622 number of records and the test data set has 20 records. The number of variables is 160.
+```{r}
+library(caret)
+library(randomForest)
+library(ggplot2)
+library(gbm)
+# Load the data
+train_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+test_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+train_data <- read.csv(train_url)
+test_data <- read.csv(test_url)
+dim(train_data)
+dim(test_data)
+```
+
+## Data Cleaning
+### Removing Variables which are having nearly zero variance.
+
+```{r}
+non_zero_var <- nearZeroVar(train_data)
+train_data <- train_data[,-non_zero_var]
+test_data <- test_data[,-non_zero_var]
+dim(train_data)
+dim(test_data)
+```
+### Removing Variables which are having NA values.
+
+```{r}
+na_val_col <- sapply(train_data, function(x) mean(is.na(x))) > 0.90
+train_data <- train_data[,na_val_col == FALSE]
+test_data <- test_data[,na_val_col == FALSE]
+dim(train_data)
+dim(test_data)
+```
+
+### Removing non-numeric variables
+
+```{r}
+train_data <- train_data[,8:59]
+test_data <- test_data[,8:59]
+
+dim(train_data)
+dim(test_data)
+```
+
+## Splitting Data into train and test
+
+Split the training data into training data 70% of the total data and test data 30% data
+
+```{r}
+part <- createDataPartition(train_data$classe, p=0.7, list=FALSE)
+train_set <- train_data[part,]
+test_set <- train_data[-part,]
+dim(train_set)
+dim(test_set)
+```
+
+## Random Forest Tree with ntree=30
+```{r}
+RF_30 <- train(classe ~ ., data = train_set, method = "rf", ntree = 30)
+RF_30pred <- predict(RF_30, test_set)
+
+ts <- factor(test_set$classe)
+pred_30 <- factor(RF_30pred)
+
+RF_30pred_conf <- confusionMatrix(pred_30, ts)
+RF_30pred_conf
+plot(RF_30pred_conf$table, col = RF_30pred_conf$byClass, 
+     main = paste("Random Forest - Accuracy Level =",
+                  round(RF_30pred_conf$overall['Accuracy'], 4)))
+```
+
+## Gradient Boosting Model
+```{r}
+GBM_modfit <- train(classe ~ ., data = train_set, method = "gbm", verbose = FALSE)
+GBM_modfit$finalModel
+GBM_prediction <- predict(GBM_modfit, test_set)
+gbm <- factor(GBM_prediction)
+GBM_pred_conf <- confusionMatrix(gbm, ts)
+GBM_pred_conf
+plot(GBM_pred_conf$table, col = GBM_pred_conf$byClass, 
+     main = paste("Gradient Boosting - Accuracy Level =",
+                  round(GBM_pred_conf$overall['Accuracy'], 4)))
+```
+## Conclusion
+From the above data, the Random Forest model has definitely more accuracy than GBM. Hence we will be selecting Random Forest model for final prediction from test_data.
+
+## Final Prediction on test
+```{r}
+Final_RF_prediction <- predict(RF_30, test_data )
+Final_RF_prediction
+```
